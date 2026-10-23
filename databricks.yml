@@ -11,6 +11,9 @@ variables:
   volume_path:
     description: "Managed landing volume path"
     default: "/Volumes/meridian_t02/landing/raw_files"
+  schedule_pause_status:
+    description: "Pause state of the job schedule"
+    default: "PAUSED"
 
 targets:
   dev:
@@ -50,7 +53,6 @@ resources:
 
   # -------------------------------------------------------------------------
   # 2. Lakeflow Orchestration Job (DAG)
-  # Respects the 5-concurrent-task account limit via sequential tasks
   # -------------------------------------------------------------------------
   jobs:
     meridian_t02_job:
