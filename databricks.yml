@@ -45,11 +45,11 @@ resources:
       channel: preview
       libraries:
         - notebook:
-            path: src/pipelines/bronze_pipeline
+            path: src/pipelines/bronze_pipeline.ipynb
         - notebook:
-            path: src/pipelines/silver_pipeline
+            path: src/pipelines/silver_pipeline.ipynb
         - notebook:
-            path: src/pipelines/gold_pipeline
+            path: src/pipelines/gold_pipeline.ipynb
 
   # -------------------------------------------------------------------------
   # 2. Lakeflow Orchestration Job (DAG)
@@ -74,7 +74,7 @@ resources:
         # Task 1: Ingest next batch into volume
         - task_key: land_batch_files
           notebook_task:
-            notebook_path: src/landing/landing_simulator
+            notebook_path: src/landing/landing_simulator.ipynb
             base_parameters:
               catalog: ${var.catalog}
               batch_id: "{{job.parameters.batch_id}}"
@@ -92,7 +92,7 @@ resources:
           depends_on:
             - task_key: execute_medallion_pipeline
           notebook_task:
-            notebook_path: src/analytics/refresh_metric_views
+            notebook_path: src/analytics/refresh_metric_views.ipynb
             base_parameters:
               catalog: ${var.catalog}
 
@@ -101,6 +101,6 @@ resources:
           depends_on:
             - task_key: verify_metric_views
           notebook_task:
-            notebook_path: ops/quality_gate
+            notebook_path: ops/quality_gate.ipynb
             base_parameters:
               catalog: ${var.catalog}
