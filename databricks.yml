@@ -31,16 +31,16 @@ targets:
     variables:
       schedule_pause_status: "UNPAUSED"
 
-resources:
+
   # -------------------------------------------------------------------------
   # 1. Lakeflow Spark Declarative Pipeline (Bronze -> Silver -> Gold)
   # -------------------------------------------------------------------------
+resources:
   pipelines:
     meridian_t02_pipeline:
-      name: meridian_${var.trainee_id}_pipeline
+      name: meridian_t${var.trainee_id}_pipeline
       catalog: ${var.catalog}
-      target: silver
-      continuous: false
+      schema: bronze
       serverless: true
       channel: preview
       libraries:
