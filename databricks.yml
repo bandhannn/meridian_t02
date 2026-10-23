@@ -1,0 +1,104 @@
+bundle:
+  name: meridian_t02
+
+variables:
+  catalog:
+    description: "Target Unity Catalog"
+    default: "meridian_t02"
+  trainee_id:
+    description: "Two-digit trainee number"
+    default: "02"
+  volume_path:
+    description: "Managed landing volume path"
+    default: "/Volumes/meridian_t02/landing/raw_files"
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      schedule_pause_status: "PAUSED"
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      schedule_pause_status: "UNPAUSED"
+
+resources:
+  # -------------------------------------------------------------------------
+  # 1. Lakeflow Spark Declarative Pipeline (Bronze -> Silver -> Gold)
+  # -------------------------------------------------------------------------
+  pipelines:
+    meridian_t02_pipeline:
+      name: meridian_${var.trainee_id}_pipeline
+      catalog: ${var.catalog}
+      target: silver
+      continuous: false
+      serverless: true
+      channel: preview
+      libraries:
+        - notebook:
+            path: src/pipelines/bronze_pipeline
+        - notebook:
+            path: src/pipelines/silver_pipeline
+        - notebook:
+            path: src/pipelines/gold_pipeline
+
+  # -------------------------------------------------------------------------
+  # 2. Lakeflow Orchestration Job (DAG)
+  # Respects the 5-concurrent-task account limit via sequential tasks
+  # -------------------------------------------------------------------------
+  jobs:
+    meridian_t02_job:
+      name: meridian_${var.trainee_id}_job
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: batch_id
+          default: "3"
+        - name: volume_path
+          default: ${var.volume_path}
+
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"
+        timezone_id: "UTC"
+        pause_status: ${var.schedule_pause_status}
+
+      tasks:
+        # Task 1: Ingest next batch into volume
+        - task_key: land_batch_files
+          notebook_task:
+            notebook_path: src/landing/landing_simulator
+            base_parameters:
+              catalog: ${var.catalog}
+              batch_id: "{{job.parameters.batch_id}}"
+              volume_path: ${var.volume_path}
+
+        # Task 2: Execute Lakeflow Pipeline (Bronze -> Silver -> Gold)
+        - task_key: execute_medallion_pipeline
+          depends_on:
+            - task_key: land_batch_files
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.meridian_t02_pipeline.id}
+
+        # Task 3: Refresh and Validate Metric Views
+        - task_key: verify_metric_views
+          depends_on:
+            - task_key: execute_medallion_pipeline
+          notebook_task:
+            notebook_path: src/analytics/refresh_metric_views
+            base_parameters:
+              catalog: ${var.catalog}
+
+        # Task 4: Automated Quality Gate Assertion
+        - task_key: evaluate_quality_gate
+          depends_on:
+            - task_key: verify_metric_views
+          notebook_task:
+            notebook_path: ops/quality_gate
+            base_parameters:
+              catalog: ${var.catalog}
