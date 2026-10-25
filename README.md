@@ -66,48 +66,6 @@ Governance is enforced natively at the Unity Catalog catalog level via dynamic U
 
 
 
-===================================================================
-                  1. DIMENSIONS (SCD Type 2)
-===================================================================
-   [ gold.dim_users ]              [ gold.dim_properties ]
-    - user_id (PK)                  - property_id (PK)
-    - email (CLS Masked)            - property_type
-    - user_country (RLS Filter)     - valid_from (SCD2)
-    - valid_from/to (SCD2)          - valid_to (SCD2)
-
-                       ^
-                       | (Point-in-Time Joins)
-                       |
-===================================================================
-                  2. FACT TABLES (Granular Events)
-===================================================================
-  [ fct_sessions ]     [ fct_bookings ]      [ fct_reviews ]
-   - session_id (PK)    - booking_id (PK)     - review_id (PK)
-   - user_id (FK)       - user_id (FK)        - user_id (FK)
-   - has_search         - property_id (FK)    - property_id (FK)
-   - is_booked          - total_amount        - rating [CLS Mask]
-
-                       |
-                       | (Semantic Aggregation)
-                       v
-===================================================================
-                  3. METRIC VIEWS (Semantic Layer)
-===================================================================
-         [ mv_stays_kpis ]             [ mv_reviews_kpis ]
-          - MEASURE active_users        - MEASURE avg_rating
-          - MEASURE conv_rate           - MEASURE deleted_share
-          - MEASURE total_revenue       - MEASURE total_reviews
-
-                       |
-                       | (Live Unity Catalog Queries)
-                       v
-===================================================================
-                  4. CONSUMPTION & SERVING
-===================================================================
-  [ AI/BI Dashboards ]   [ Genie AI Agent ]   [ Power BI DirectQuery ]
-===================================================================
-
-
 ### Key Governance Implementations
 1. **Dynamic Row-Level Security (RLS)**:
    - Filter UDF: `gov.fn_country_row_filter(country_val)`
