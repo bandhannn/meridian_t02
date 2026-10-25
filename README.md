@@ -66,6 +66,71 @@ Governance is enforced natively at the Unity Catalog catalog level via dynamic U
 
 
 
+### Gold Star Schema & Semantic Layer Architecture
+
+===========================================================================================================
+                                       [ DIMENSIONS (SCD Type 2) ]
+===========================================================================================================
+
+       +------------------------------------+             +------------------------------------+
+       |          gold.dim_users            |             |        gold.dim_properties         |
+       +------------------------------------+             +------------------------------------+
+       | PK user_id                         |             | PK property_id                     |
+       |    user_name                       |             |    title                           |
+       |    email               [CLS Mask]  |             |    property_type                   |
+       |    user_country        [RLS Filter]|             |    valid_from          [SCD2]      |
+       |    valid_from          [SCD2]      |             |    valid_to            [SCD2]      |
+       |    valid_to            [SCD2]      |             |    is_current                      |
+       +------------------------------------+             +------------------------------------+
+                         ^                                                  ^
+                         |                                                  |
+                         | Point-in-Time (PIT) Joins                        | Point-in-Time (PIT) Joins
+                         | (event_time BETWEEN valid_from AND valid_to)     |
+                         v                                                  v
+===========================================================================================================
+                                          [ FACT TABLES (Gold) ]
+===========================================================================================================
+
++-----------------------------+     +-----------------------------+     +-----------------------------+
+|      gold.fct_sessions      |     |      gold.fct_bookings      |     |      gold.fct_reviews       |
++-----------------------------+     +-----------------------------+     +-----------------------------+
+| PK session_id               |     | PK booking_id               |     | PK review_id                |
+| FK user_id                  |     | FK user_id                  |     | FK user_id                  |
+|    session_date             |     | FK property_id              |     | FK property_id              |
+|    user_country             |     |    user_country             |     |    user_country             |
+|    device_type              |     |    booking_status           |     |    rating                   |
+|    has_search               |     |    total_amount             |     |    review_comment [CLS Mask]|
+|    has_booking_attempt      |     |    guests_count             |     |    review_date              |
+|    is_booked                |     |    check_in / check_out     |     |    moderation_status        |
++-----------------------------+     +-----------------------------+     +-----------------------------+
+               |                                   |                                   |
+               +-----------------+                 |                 +-----------------+
+                                 |                 |                 |
+                                 v                 v                 v
+===========================================================================================================
+                                   [ SEMANTIC LAYER (Metric Views) ]
+===========================================================================================================
+
+               +-----------------------------------+     +-----------------------------------+
+               |        gold.mv_stays_kpis         |     |       gold.mv_reviews_kpis        |
+               +-----------------------------------+     +-----------------------------------+
+               | MEASURE active_users              |     | MEASURE total_reviews             |
+               | MEASURE total_sessions            |     | MEASURE average_rating            |
+               | MEASURE total_searches            |     | MEASURE deleted_review_share      |
+               | MEASURE search_to_booking_conv    |     +-----------------------------------+
+               +-----------------------------------+
+                                 |                                   |
+                                 +-----------------+-----------------+
+                                                   |
+                                                   v
+===========================================================================================================
+                                       [ CONSUMPTION & SERVING ]
+===========================================================================================================
+               |                                   |                                   |
+               v                                   v                                   v
+      [ AI/BI Dashboards ]             [ Databricks Genie Agent ]            [ Power BI DirectQuery ]
+
+
 
 ### Key Governance Implementations
 1. **Dynamic Row-Level Security (RLS)**:
